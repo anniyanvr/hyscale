@@ -22,6 +22,7 @@ import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import io.hyscale.deployer.services.model.PodStatus;
 import org.apache.commons.lang3.StringUtils;
 
 import io.hyscale.commons.constants.K8SRuntimeConstants;
@@ -54,6 +55,9 @@ public class K8sPodUtil {
                 v1Pod.getStatus().getInitContainerStatuses());
         if (initContainerAggStatus != null) {
             return initContainerAggStatus;
+        }
+        if(v1Pod.getMetadata().getDeletionTimestamp() != null){
+            return PodStatus.TERMINATING.getStatus();
         }
         String containerAggStatus = validateAndGetContainerStatuses(v1Pod.getStatus().getContainerStatuses());
         return containerAggStatus != null ? containerAggStatus : v1Pod.getStatus().getPhase();
@@ -201,7 +205,7 @@ public class K8sPodUtil {
 
 
     /**
-     * @param v1Pod
+     * @param pod
      * @param restartPodCount
      * @return If pod restart count is greater than to given restartPodCount then it will return true, else false
      */

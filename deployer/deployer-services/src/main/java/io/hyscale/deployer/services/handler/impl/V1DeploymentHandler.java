@@ -65,6 +65,7 @@ public class V1DeploymentHandler extends PodParentHandler<V1Deployment> implemen
         }
         WorkflowLogger.startActivity(DeployerActivity.DEPLOYING_DEPLOYMENT);
         AppsV1Api appsV1Api = new AppsV1Api(apiClient);
+        String name = resource.getMetadata().getName();
         V1Deployment v1Deployment = null;
         try {
             resource.getMetadata().putAnnotationsItem(
@@ -79,6 +80,7 @@ public class V1DeploymentHandler extends PodParentHandler<V1Deployment> implemen
             WorkflowLogger.endActivity(Status.FAILED);
             throw ex;
         }
+        LOGGER.info("Created Deployment {} in namespace {}",name,namespace);
         WorkflowLogger.endActivity(Status.DONE);
         return v1Deployment;
     }
@@ -112,6 +114,7 @@ public class V1DeploymentHandler extends PodParentHandler<V1Deployment> implemen
             WorkflowLogger.endActivity(Status.FAILED);
             throw ex;
         }
+        LOGGER.info("Updated Deployment {} in namespace {}",name,namespace);
         WorkflowLogger.endActivity(Status.DONE);
         return true;
     }
@@ -240,6 +243,7 @@ public class V1DeploymentHandler extends PodParentHandler<V1Deployment> implemen
             WorkflowLogger.endActivity(activityContext, Status.FAILED);
             throw ex;
         }
+        LOGGER.info("Deleted Deployment {} in namespace {}",name, namespace);
         WorkflowLogger.endActivity(activityContext, Status.DONE);
         return true;
     }
@@ -306,13 +310,13 @@ public class V1DeploymentHandler extends PodParentHandler<V1Deployment> implemen
         Integer readyReplicas = deploymentStatus.getReadyReplicas();
         if ((desiredReplicas == null || desiredReplicas == 0) && (statusReplicas == null || statusReplicas == 0)) {
             return ResourceStatus.STABLE;
-
         }
         // pending case
         if (updatedReplicas == null || (desiredReplicas != null && desiredReplicas > updatedReplicas)
                 || (statusReplicas != null && statusReplicas > updatedReplicas)
                 || (availableReplicas == null || availableReplicas < updatedReplicas)
-                || (readyReplicas == null || (desiredReplicas != null && desiredReplicas > readyReplicas))) {
+                || (readyReplicas == null || (desiredReplicas != null && desiredReplicas > readyReplicas))
+                || (statusReplicas != null && desiredReplicas == 0)) {
             return ResourceStatus.PENDING;
         }
         return ResourceStatus.STABLE;
@@ -365,7 +369,15 @@ public class V1DeploymentHandler extends PodParentHandler<V1Deployment> implemen
         if (deployment == null) {
             return null;
         }
-        return buildStatusFromMetadata(deployment.getMetadata(), ResourceStatus.getServiceStatus(status(deployment)));
+        ResourceStatus resourceStatus = status(deployment);
+        DeploymentStatus.ServiceStatus serviceStatus = ResourceStatus.getServiceStatus(resourceStatus);
+        if (resourceStatus.equals(ResourceStatus.PENDING) && deployment.getStatus().getReadyReplicas() != null && deployment.getSpec().getReplicas() <= deployment.getStatus().getReadyReplicas()) {
+            serviceStatus = DeploymentStatus.ServiceStatus.SCALING_DOWN;
+        }
+        if (deployment.getSpec().getReplicas() == 0 && resourceStatus.equals(ResourceStatus.STABLE)){
+            serviceStatus = DeploymentStatus.ServiceStatus.NOT_RUNNING;
+        }
+        return buildStatusFromMetadata(deployment.getMetadata(), serviceStatus);
     }
 
     @Override
@@ -448,28 +460,22 @@ public class V1DeploymentHandler extends PodParentHandler<V1Deployment> implemen
         }
         String name = v1Deployment.getMetadata().getName();
         int currentReplicas = v1Deployment.getSpec().getReplicas();
-        if (currentReplicas == value) {
-            WorkflowLogger.persist(DeployerActivity.DESIRED_STATE, String.valueOf(value));
-            return true;
-        }
-        V1Scale exisiting = new V1ScaleBuilder()
-                .withSpec(new V1ScaleSpec().replicas(currentReplicas))
-                .build();
-        AppsV1Api appsV1Api = new AppsV1Api(apiClient);
+        String lastAppliedConfig = v1Deployment.getMetadata().getAnnotations()
+                .get(AnnotationKey.K8S_HYSCALE_LAST_APPLIED_CONFIGURATION.getAnnotation());
+        V1Deployment lastAppliedDeployment = GsonProviderUtil.getPrettyGsonBuilder().fromJson(lastAppliedConfig, V1Deployment.class);
         ActivityContext activityContext = new ActivityContext(DeployerActivity.SCALING_SERVICE);
         WorkflowLogger.startActivity(activityContext);
         boolean status = false;
         try {
-            V1Scale scale = new V1ScaleBuilder()
-                    .withSpec(new V1ScaleSpec().replicas(value))
-                    .build();
-            Object jsonPatch = K8sResourcePatchUtil.getJsonPatch(exisiting, scale, V1Scale.class);
-            V1Patch patch = new V1Patch(jsonPatch.toString());
-            appsV1Api.patchNamespacedDeploymentScale(name, namespace, patch, DeployerConstants.TRUE, null, null, null);
+            if (!(currentReplicas == value && lastAppliedDeployment.getSpec().getReplicas() == value)) {
+                lastAppliedDeployment.getSpec().setReplicas(value);
+                patch(apiClient, name, namespace, lastAppliedDeployment);
+            }
             status = waitForDesiredState(apiClient, name, namespace, activityContext);
-        } catch (ApiException e) {
-            LOGGER.error("Error while applying PATCH scale to {} due to : {} code :{}", name, e.getResponseBody(), e.getCode(), e);
-            throw new HyscaleException(DeployerErrorCodes.ERROR_WHILE_SCALING, e.getResponseBody());
+        } catch (HyscaleException e) {
+            LOGGER.error("Error while applying PATCH scale to {} due to : {} code :{}", name, e.getMessage(), e.getCode(), e);
+            HyscaleException ex = new HyscaleException(DeployerErrorCodes.ERROR_WHILE_SCALING, e.getMessage());
+            throw ex;
         } finally {
             if (status) {
                 WorkflowLogger.endActivity(activityContext, Status.DONE);
@@ -512,4 +518,8 @@ public class V1DeploymentHandler extends PodParentHandler<V1Deployment> implemen
         return stable;
     }
 
+    @Override
+    public boolean isWorkLoad() {
+    	return true;
+    }
 }

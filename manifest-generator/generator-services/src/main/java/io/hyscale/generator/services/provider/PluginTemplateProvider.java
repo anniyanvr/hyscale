@@ -19,13 +19,8 @@ import io.hyscale.commons.models.ConfigTemplate;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
-import java.io.File;
-import java.net.URL;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Component
 public class PluginTemplateProvider {
@@ -54,8 +49,22 @@ public class PluginTemplateProvider {
 
 
     public enum PluginTemplateType {
-        HPA("hpa.yaml.tpl");
-    			
+        HPA("hpa.yaml.tpl"),
+
+        INGRESS("/loadBalancer/ingress/ingress-spec.yaml.tpl"),
+
+        NGINX("/loadBalancer/ingress/nginx/ingress-meta.yaml.tpl"),
+
+        TRAEFIK("/loadBalancer/ingress/traefik/ingress-meta.yaml.tpl"),
+
+        ISTIO_VIRTUAL_SERVICE("/loadBalancer/istio/virtualService.yaml.tpl"),
+
+        ISTIO_DESTINATION_RULE("/loadBalancer/istio/destinationRule.yaml.tpl"),
+
+        ISTIO_GATEWAY("/loadBalancer/istio/gateway.yaml.tpl"),
+
+        NETWORK_POLICY("networkPolicy.yaml.tpl");
+    		
         String templateFile;
 
         PluginTemplateType(String tplFile) {

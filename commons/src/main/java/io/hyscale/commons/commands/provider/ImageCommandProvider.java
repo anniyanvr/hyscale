@@ -15,6 +15,7 @@
  */
 package io.hyscale.commons.commands.provider;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
@@ -24,10 +25,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+
 import io.hyscale.commons.config.SetupConfig;
 import io.hyscale.commons.constants.ToolConstants;
 import io.hyscale.commons.utils.ImageMetadataProvider;
 import io.hyscale.commons.utils.NormalizationUtil;
+import io.hyscale.commons.utils.ObjectMapperFactory;
 
 @Component
 public class ImageCommandProvider {
@@ -43,8 +47,9 @@ public class ImageCommandProvider {
 	private static final String INSPECT_COMMAND = "inspect";
 	private static final String TAG_COMMAND = "tag";
 	private static final String SPACE = " ";
-	private static final String DOCKER_BUILD = "docker build";
+	private static final String BUILD_COMMAND = "build";
 	private static final String TAG_ARG = " -t ";
+	private static final String FILE_ARG = " -f ";
 	private static final String BUILD_ARGS = " --build-arg ";
 	private static final String REMOVE_IMAGE = "rmi";
 	private static final String PULL_COMMAND = "pull";
@@ -53,40 +58,61 @@ public class ImageCommandProvider {
 	private static final String FORCE_FLAG = "f";
 	private static final String QUIET = "q";
 	private static final String FILTER = "--filter";
+	private static final String TARGET_ARGS = " --target ";
+	private static final String LOGIN = " login ";
+	private static final String CONFIG = " --config ";
+	private static final String USER_ARG = " -u ";
+	private static final String PASS_ARG = " -p ";
 	private static final boolean USE_SUDO = false;
-	private static final String TARGET = "target";
+	private static final boolean USE_CONFIG = true;
 	
 	@Autowired
 	private ImageMetadataProvider imageMetadataProvider;
-
-    public String dockerBuildCommand(String appName, String serviceName, String tag, String dockerFilePath) {
-        return dockerBuildCommand(appName, serviceName, tag, dockerFilePath, null, null);
-    }
-
-    // --label “imageowner=hyscale"
-    public String dockerBuildCommand(String appName, String serviceName, String tag, String dockerFilePath,String target,
-                                     Map<String, String> buildArgs) {
-		StringBuilder buildCommand = new StringBuilder();
-		buildCommand.append(DOCKER_BUILD);
-		if (target != null) {
-			buildCommand.append(SPACE).append(HYPHEN).append(HYPHEN).append(TARGET).append(SPACE).append(target);
-		}
-		buildCommand.append(SPACE).append(HYPHEN).append(HYPHEN).append(LABEL_ARGS).append(SPACE).append(IMAGE_OWNER)
-				.append(EQUALS).append(HYSCALE);
+	
+	/**
+     * Provides docker build command based on user input
+     * If buildPath is provided than dockerfilePath should refer to the Dockerfile and not directory
+     * Ex docker build -t imageName:tag --label “imageowner=hyscale" -f dockerfilePath buildPath
+     * @param imageName
+     * @param tag
+     * @param dockerFilePath Path to dockerfile: Can be directory where dockerfile is or complete path
+     * @param buildPath
+     * @param target
+     * @param buildArgs
+     * @return docker build command
+     */
+    public String dockerBuildCommand(String imageName, String tag, String dockerFilePath, String buildPath,
+            String target, Map<String, String> buildArgs) {
+        StringBuilder buildCommand = new StringBuilder(docker(USE_CONFIG));
+        buildCommand.append(BUILD_COMMAND);
+        if (target != null) {
+            buildCommand.append(TARGET_ARGS).append(target);
+        }
+        buildCommand.append(SPACE).append(HYPHEN).append(HYPHEN).append(LABEL_ARGS).append(SPACE).append(IMAGE_OWNER)
+                .append(EQUALS).append(HYSCALE);
 
         if (buildArgs != null && !buildArgs.isEmpty()) {
             buildCommand.append(getBuildArgs(buildArgs));
         }
         buildCommand.append(TAG_ARG);
-        buildCommand.append(imageMetadataProvider.getBuildImageNameWithTag(appName, serviceName, tag));
-        dockerFilePath = StringUtils.isNotBlank(dockerFilePath) ? dockerFilePath : SetupConfig.getAbsolutePath(".");
-        buildCommand.append(SPACE).append(dockerFilePath).append(ToolConstants.FILE_SEPARATOR);
+        String imageNameWithTag = StringUtils.isNotBlank(tag) ? imageName + ToolConstants.COLON + tag : imageName;
+        buildCommand.append(imageNameWithTag);
+        if (StringUtils.isNotBlank(buildPath)) {
+            buildCommand.append(FILE_ARG).append(dockerFilePath).append(SPACE).append(buildPath);
+        } else {
+            dockerFilePath = StringUtils.isNotBlank(dockerFilePath) ? dockerFilePath : SetupConfig.getAbsolutePath(".");
+            File dockerfile = new File(dockerFilePath);
+            dockerFilePath = dockerfile.isFile() ? dockerfile.getParent()
+                    : dockerFilePath + ToolConstants.FILE_SEPARATOR;
+            buildCommand.append(SPACE).append(dockerFilePath);
+        }
         return buildCommand.toString();
     }
     
     private String getBuildArgs(Map<String, String> buildArgs) {
         StringBuilder buildArgsCmd = new StringBuilder();
-        buildArgs.entrySet().stream().forEach(each -> buildArgsCmd.append(BUILD_ARGS).append(each.getKey() + EQUALS + each.getValue()));
+        buildArgs.entrySet().stream()
+                .forEach(each -> buildArgsCmd.append(BUILD_ARGS).append(each.getKey() + EQUALS + each.getValue()));
         return buildArgsCmd.toString();
     }
 
@@ -100,7 +126,7 @@ public class ImageCommandProvider {
 
     public String dockerPush(String imageFullPath) {
         imageFullPath = NormalizationUtil.normalizeImageName(imageFullPath);
-        StringBuilder pushCommand = new StringBuilder(docker());
+        StringBuilder pushCommand = new StringBuilder(docker(USE_CONFIG));
         pushCommand.append(PUSH_COMMAND).append(SPACE).append(imageFullPath);
         return pushCommand.toString();
     }
@@ -119,16 +145,9 @@ public class ImageCommandProvider {
             return null;
         }
         imageName = NormalizationUtil.normalizeImageName(imageName);
-        StringBuilder imagePullCmd = new StringBuilder(docker());
+        StringBuilder imagePullCmd = new StringBuilder(docker(USE_CONFIG));
         imagePullCmd.append(PULL_COMMAND).append(SPACE).append(imageName);
         return imagePullCmd.toString();
-    }
-
-    public String getImageCleanUpCommand(String appName, String serviceName, String tag) {
-        StringBuilder imageCleanCommand = new StringBuilder(docker());
-        imageCleanCommand.append(REMOVE_IMAGE).append(SPACE)
-                .append(imageMetadataProvider.getBuildImageNameWithTag(appName, serviceName, tag));
-        return imageCleanCommand.toString();
     }
 
     public String dockerInspect(String imageFullPath) {
@@ -144,6 +163,14 @@ public class ImageCommandProvider {
         }
         return DOCKER_COMMAND + SPACE;
     }
+    
+    private String docker(boolean withConfig) {
+        StringBuilder sb = new StringBuilder(docker());
+        if (withConfig) {
+            sb.append(CONFIG).append(SetupConfig.getTemporaryDockerConfigDir()).append(SPACE);
+        }
+        return sb.toString();
+    }
 
     // docker rmi <id1> <id2> <id3>
     public String removeDockerImages(Set<String> imageIds, boolean force) {
@@ -157,6 +184,35 @@ public class ImageCommandProvider {
         }
         imageIds.stream().forEach( imageId -> removeDockerImages.append(SPACE).append(imageId));
         return removeDockerImages.toString();
+    }
+
+    /**
+     * 
+     * @param registry
+     * @param username
+     * @param password
+     * @return docker --config ConfigFile login registry -u username -p password
+     */
+    public String dockerLogin(String registry, String username, String password) {
+        StringBuilder sb = new StringBuilder(docker(USE_CONFIG));
+        sb.append(LOGIN).append(SPACE).append(registry).append(SPACE);
+        if (StringUtils.isNotBlank(username) && StringUtils.isNotBlank(password)) {
+            sb.append(USER_ARG).append(username);
+            if (isPasswordJson(password)) {
+                password = "'" + password + "'";
+            }
+            sb.append(PASS_ARG).append(password);
+        }
+        return sb.toString();
+    }
+    
+    private boolean isPasswordJson(String password) {
+        try {
+            ObjectMapperFactory.jsonMapper().readTree(password);
+        } catch (JsonProcessingException e) {
+            return false;
+        }
+        return true;
     }
 
     // docker rmi <id1> <id2> <id3>

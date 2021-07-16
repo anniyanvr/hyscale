@@ -18,6 +18,7 @@ package io.hyscale.servicespec.commons.fields;
 /**
  * Defines fields for hyscale service spec
  */
+@SuppressWarnings("java:S115")
 public class HyscaleSpecFields {
 
 	public static final String name = "name";
@@ -42,6 +43,7 @@ public class HyscaleSpecFields {
 	public static final String runCommands = "runCommands";
 	public static final String runCommandsScript = "runCommandsScript";
 	public static final String startCommand = "startCommand";
+	public static final String k8sSnippets = "k8sSnippets";
 	public static final String replicas = "replicas";
 	public static final String memory = "memory";
 	public static final String cpu = "cpu";
@@ -85,11 +87,15 @@ public class HyscaleSpecFields {
 	public static final String propsVolumePath = "propsVolumePath";
 	public static final String secretsVolumePath = "secretsVolumePath";
 	public static final String storageClass = "storageClass";
+	public static final String loadBalancer = "loadBalancer";
 
 	//Replicas
 	public static final String min="min";
 	public static final String max="max";
 	public static final String cpuThreshold ="cpuThreshold";
+
+	//Network Policies
+	public static final String allowTraffic="allowTraffic";
 
 	// JSON fields helper
 	public static final String arrayLeftBrace = "[";

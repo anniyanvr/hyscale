@@ -34,5 +34,7 @@ module service_spec_commons {
 	exports io.hyscale.servicespec.commons.json.config;
 	exports io.hyscale.servicespec.commons.util;
 	exports io.hyscale.servicespec.commons.builder;
+	exports io.hyscale.servicespec.commons.activity;
+	exports io.hyscale.servicespec.commons.predicates;
 
 }

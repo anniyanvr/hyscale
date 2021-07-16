@@ -48,6 +48,7 @@ import io.hyscale.dockerfile.gen.services.manager.impl.ArtifactManagerImpl;
 import io.hyscale.dockerfile.gen.services.manager.impl.DockerScriptManagerImpl;
 import io.hyscale.servicespec.commons.fields.HyscaleSpecFields;
 import io.hyscale.servicespec.commons.model.service.ServiceSpec;
+import io.hyscale.servicespec.commons.predicates.ServiceSpecPredicates;
 
 /**
  * Implementation to @see {@link DockerfileGenerator}
@@ -55,7 +56,7 @@ import io.hyscale.servicespec.commons.model.service.ServiceSpec;
  * Responsible for
  * <ol>
  * <li>Copying supporting files to the path relative to dockerfile </li>
- * <li>Handles the configuration commands & runCommands to dockerfile</li>
+ * <li>Handles the configuration commands and runCommands to dockerfile</li>
  * <li> Generates Dockerfile content</li>
  * <li> Persists the dockerfile at
  * USER.HOME/hyscale/apps/[appName]/[serviceName/generated-files/dockerfiles</li>
@@ -189,7 +190,7 @@ public class DockerfileGeneratorImpl implements DockerfileGenerator {
         if (DockerfileGenPredicates.skipDockerfileGen().test(serviceSpec)) {
             WorkflowLogger.startActivity(DockerfileActivity.DOCKERFILE_GENERATION);
             WorkflowLogger.endActivity(Status.SKIPPING);
-            if (DockerfileGenPredicates.stackAsServiceImage().test(serviceSpec)) {
+            if (ServiceSpecPredicates.stackAsServiceImage().test(serviceSpec)) {
                 context.setStackAsServiceImage(true);
             }
             return false;

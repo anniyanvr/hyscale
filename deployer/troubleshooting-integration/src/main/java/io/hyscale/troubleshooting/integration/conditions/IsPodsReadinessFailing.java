@@ -27,7 +27,7 @@ import io.hyscale.troubleshooting.integration.actions.FixHealthCheckAction;
 import io.kubernetes.client.openapi.models.V1Event;
 import io.kubernetes.client.openapi.models.V1Pod;
 
-import org.apache.commons.lang.BooleanUtils;
+import org.apache.commons.lang3.BooleanUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,10 +57,10 @@ public class IsPodsReadinessFailing implements Node<TroubleshootingContext> {
         List<TroubleshootingContext.ResourceInfo> resourceInfos = context.getResourceInfos().get(ResourceKind.POD.getKind());
         DiagnosisReport report = new DiagnosisReport();
         if (resourceInfos == null || resourceInfos.isEmpty()) {
-            report.setReason(AbstractedErrorMessage.SERVICE_NOT_DEPLOYED.formatReason(context.getServiceInfo().getServiceName()));
+            report.setReason(AbstractedErrorMessage.SERVICE_NOT_DEPLOYED.formatReason(context.getServiceMetadata().getServiceName()));
             report.setRecommendedFix(AbstractedErrorMessage.SERVICE_NOT_DEPLOYED.getMessage());
             context.addReport(report);
-            throw new HyscaleException(TroubleshootErrorCodes.SERVICE_IS_NOT_DEPLOYED, context.getServiceInfo().getServiceName());
+            throw new HyscaleException(TroubleshootErrorCodes.SERVICE_IS_NOT_DEPLOYED, context.getServiceMetadata().getServiceName());
         }
 
         List<V1Event> v1Events = new ArrayList<>();

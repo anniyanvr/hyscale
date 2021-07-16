@@ -78,6 +78,7 @@ public class V1ServiceHandler implements ResourceLifeCycleHandler<V1Service> {
             WorkflowLogger.endActivity(Status.FAILED);
             throw ex;
         }
+        LOGGER.info("Created Service {} in namespace {}", name, namespace);
         WorkflowLogger.endActivity(Status.DONE);
         return v1Service;
     }
@@ -113,7 +114,7 @@ public class V1ServiceHandler implements ResourceLifeCycleHandler<V1Service> {
             WorkflowLogger.endActivity(Status.FAILED);
             throw ex;
         }
-
+        LOGGER.info("Updated Service {} in namespace {}", name, namespace);
         WorkflowLogger.endActivity(Status.DONE);
         return true;
     }
@@ -216,6 +217,7 @@ public class V1ServiceHandler implements ResourceLifeCycleHandler<V1Service> {
             WorkflowLogger.endActivity(activityContext, Status.FAILED);
             throw ex;
         }
+        LOGGER.info("Deleted Service {} in namespace {}",name, namespace);
         WorkflowLogger.endActivity(activityContext, Status.DONE);
         return true;
     }
@@ -276,11 +278,11 @@ public class V1ServiceHandler implements ResourceLifeCycleHandler<V1Service> {
             while (System.currentTimeMillis() - startTime < LB_READY_STATE_TIME) {
                 WorkflowLogger.continueActivity(serviceIPContext);
                 List<V1Service> v1ServiceList = getBySelector(apiClient, selector, true, namespace);
-                
-                v1Service = v1ServiceList != null && !v1ServiceList.isEmpty() ? v1ServiceList.get(0) : null;
-                loadBalancerIngress = K8sServiceUtil.getLoadBalancer(v1Service);
-
-                if (loadBalancerIngress != null) {
+                if (v1ServiceList != null && !v1ServiceList.isEmpty()){
+                    v1Service = v1ServiceList.get(0);
+                    loadBalancerIngress = K8sServiceUtil.getLoadBalancer(v1Service);
+                }
+                if (loadBalancerIngress != null || v1ServiceList == null || v1ServiceList.isEmpty()) {
                     break;
                 }
                 Thread.sleep(MAX_LB_WAIT_TIME);

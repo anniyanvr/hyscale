@@ -17,6 +17,7 @@ package io.hyscale.commons.commands;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 import org.apache.commons.exec.CommandLine;
 import org.apache.commons.exec.DefaultExecutor;
@@ -35,7 +36,7 @@ import io.hyscale.commons.io.StringOutputStream;
 import io.hyscale.commons.models.CommandResult;
 
 /**
- * Class to execute commands using apache commons exec {@link https://commons.apache.org/proper/commons-exec/}
+ * Class to execute commands using apache commons exec <a href="https://ommons.apache.org/proper/commons-exec/">apache commons exec</a>
  * Use case:
  * To execute command and check if it was successful
  * To execute command and get output in String
@@ -100,6 +101,10 @@ public class CommandExecutor {
     public static boolean execute(String command, File commandOutputFile) {
         return executeInDir(command, commandOutputFile, null);
     }
+    
+    public static boolean executeInDir(String command, String dir) {
+        return executeInDir(command, null, dir);
+    }
 
     /**
      * @param command           to be executed
@@ -140,7 +145,7 @@ public class CommandExecutor {
         if (StringUtils.isBlank(dir) || dir.equals(".")) {
             dir = SetupConfig.CURRENT_WORKING_DIR;
         }
-        CommandLine commandToExecute = CommandLine.parse(command);
+        CommandLine commandToExecute = getCommandLine(command);
 
         Executor executor = new DefaultExecutor();
 
@@ -179,6 +184,22 @@ public class CommandExecutor {
             return ((StringOutputStream) outputStream).toString();
         }
         return null;
+    }
+    
+    // To process quotes separately, since they are not required 
+    private static CommandLine getCommandLine(String command) {
+
+        CommandLine oldCommandLine = CommandLine.parse(command);
+
+        CommandLine newCommandLine = new CommandLine(oldCommandLine.getExecutable());
+
+        Arrays.asList(oldCommandLine.getArguments()).forEach(each -> {
+            if (each.startsWith("'") && each.endsWith("'")) {
+                each = each.substring(1, each.length() - 1);
+            }
+            newCommandLine.addArgument(each, false);
+        });
+        return newCommandLine;
     }
 
     private static InputStream getInputStream(String stdInput) {

@@ -31,9 +31,12 @@ public enum ResourceKind {
     HORIZONTAL_POD_AUTOSCALER("HorizontalPodAutoscaler", 2),
     PERSISTENT_VOLUME_CLAIM("PersistentVolumeClaim", 2),
     EVENT("Event"),
-    VERSION("VersionInfo");
+    VERSION("VersionInfo"),
+    INGRESS("Ingress","networking.k8s.io/v1beta1"),
+    NETWORKPOLICY("NetworkPolicy");
 
     private String kind;
+    private String apiVersion;
 
     /**
      *  Deletion and creation order
@@ -44,9 +47,18 @@ public enum ResourceKind {
         this.kind = kind;
     }
 
+    ResourceKind(String kind, String apiVersion){
+        this.kind = kind;
+        this.apiVersion = apiVersion;
+    }
+
     ResourceKind(String kind, int weight) {
         this.kind = kind;
         this.weight = weight;
+    }
+
+    public String getApiVersion() {
+        return apiVersion;
     }
 
     public String getKind() {

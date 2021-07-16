@@ -15,7 +15,7 @@
  */
 package io.hyscale.troubleshooting.integration.models;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 public enum AbstractedErrorMessage implements IMessage, IReason {
 
@@ -40,7 +40,6 @@ public enum AbstractedErrorMessage implements IMessage, IReason {
     INVALID_RESOURCE_NAME("{} available in cluster is invalid", "Fix the resource name and redeploy"),
     TRY_AFTER_SOMETIME("Deployment is still in progress, service is not yet ready", "Try querying after sometime"),
     SERVICE_COMMANDS_FAILURE("Service startup commands failed with {}" , "Possible errors can be in startCommands of hspec or ENTRYPOINT/CMD in Dockerfile");
-
 
     private String message;
     private String reason;

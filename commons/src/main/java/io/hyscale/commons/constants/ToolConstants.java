@@ -25,9 +25,13 @@ public class ToolConstants {
 
     public static final String COLON = ":";
 
+    public static final String SEMI_COLON = ";";
+
     public static final String DOUBLE_COLON = "::";
 
     public static final String COMMA = ",";
+
+    public static final String HEADER_CONCATENATOR = "|";
 
     public static final String DOT = ".";
 
@@ -94,6 +98,8 @@ public class ToolConstants {
     public static final String PROFILES_DIR_NAME = "profiles";
 
     public static final String WORKFLOW_LOGGER_DISABLED = "WORKFLOW_LOGGER_DISABLED";
+
+    public static final String PORTS_PROTOCOL_SEPARATOR = "/";
 
     private ToolConstants() {}
 

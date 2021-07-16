@@ -30,7 +30,9 @@ public class DeploymentStatus {
         RUNNING("Running"),
         NOT_RUNNING("Not Running"),
         NOT_DEPLOYED("Not Deployed"),
-        FAILED("Failed");
+        FAILED("Failed"),
+        SCALING_DOWN("Scaling Down");
+
 
         private ServiceStatus(String message) {
             this.message = message;
@@ -47,6 +49,7 @@ public class DeploymentStatus {
     private ServiceStatus serviceStatus;
     private String message;
     private String serviceAddress;
+    private String serviceURL;
 
     private DateTime age;
 
@@ -88,6 +91,14 @@ public class DeploymentStatus {
 
     public void setServiceAddress(String serviceAddress) {
         this.serviceAddress = serviceAddress;
+    }
+
+    public String getServiceURL() {
+        return serviceURL;
+    }
+
+    public void setServiceURL(String serviceURL) {
+        this.serviceURL = serviceURL;
     }
 
 }

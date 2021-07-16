@@ -18,15 +18,18 @@ package io.hyscale.generator.services.model;
 import java.util.Map;
 import java.util.function.Predicate;
 
+import io.hyscale.commons.models.LBType;
 import io.hyscale.generator.services.builder.DefaultLabelBuilder;
 import io.hyscale.generator.services.constants.ManifestGenConstants;
 import io.hyscale.generator.services.predicates.ManifestPredicates;
 import org.apache.commons.lang3.StringUtils;
 
+import io.hyscale.commons.models.ServiceMetadata;
 import io.hyscale.commons.utils.NormalizationUtil;
 import io.hyscale.servicespec.commons.model.service.ServiceSpec;
 
 public enum ManifestResource {
+
 
     STATEFUL_SET("StatefulSet", "apps/v1") {
         @Override
@@ -34,12 +37,6 @@ public enum ManifestResource {
             StringBuilder sb = new StringBuilder();
             sb.append(NormalizationUtil.normalize(serviceMetadata.getServiceName()));
             return sb.toString();
-        }
-
-        @Override
-        public Map<String, String> getLabels(ServiceMetadata serviceMetadata) {
-            return DefaultLabelBuilder.build(serviceMetadata);
-
         }
 
         @Override
@@ -56,15 +53,8 @@ public enum ManifestResource {
         }
 
         @Override
-        public Map<String, String> getLabels(ServiceMetadata serviceMetadata) {
-            return DefaultLabelBuilder.build(serviceMetadata);
-        }
-
-        @Override
         public Predicate<ServiceSpec> getPredicate() {
-            return servicespec -> {
-                return !ManifestPredicates.getVolumesPredicate().test(servicespec);
-            };
+            return servicespec ->!ManifestPredicates.getVolumesPredicate().test(servicespec);
         }
     },
     CONFIG_MAP("ConfigMap", "v1") {
@@ -75,11 +65,6 @@ public enum ManifestResource {
             sb.append(ManifestGenConstants.NAME_DELIMITER);
             sb.append(NormalizationUtil.normalize(serviceMetadata.getServiceName()));
             return sb.toString();
-        }
-
-        @Override
-        public Map<String, String> getLabels(ServiceMetadata serviceMetadata) {
-            return DefaultLabelBuilder.build(serviceMetadata);
         }
 
         // TODO set this value to false by default on props plugin should be true
@@ -100,11 +85,6 @@ public enum ManifestResource {
         }
 
         @Override
-        public Map<String, String> getLabels(ServiceMetadata serviceMetadata) {
-            return DefaultLabelBuilder.build(serviceMetadata);
-        }
-
-        @Override
         public Predicate<ServiceSpec> getPredicate() {
             return ManifestPredicates.getSecretsPredicate();
         }
@@ -114,11 +94,6 @@ public enum ManifestResource {
         @Override
         public String getName(ServiceMetadata serviceMetadata) {
             return NormalizationUtil.normalize(serviceMetadata.getServiceName());
-        }
-
-        @Override
-        public Map<String, String> getLabels(ServiceMetadata serviceMetadata) {
-            return DefaultLabelBuilder.build(serviceMetadata);
         }
 
         @Override
@@ -138,13 +113,122 @@ public enum ManifestResource {
         }
 
         @Override
+        public Predicate<ServiceSpec> getPredicate() {
+            return ManifestPredicates.isAutoScalingEnabled();
+        }
+    },
+
+    NETWORK_POLICY("NetworkPolicy", "networking.k8s.io/v1") {
+        @Override
+        public String getName(ServiceMetadata serviceMetadata) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(NormalizationUtil.normalize(serviceMetadata.getAppName()));
+            sb.append(ManifestGenConstants.NAME_DELIMITER);
+            sb.append(NormalizationUtil.normalize(serviceMetadata.getServiceName()));
+            return sb.toString();
+        }
+
+        @Override
+        public Predicate<ServiceSpec> getPredicate() {
+            return ManifestPredicates.isNetworkPolicyEnabled();
+        }
+    },
+
+    INGRESS("Ingress", "networking.k8s.io/v1beta1"){
+        @Override
+        public String getName(ServiceMetadata serviceMetadata) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(NormalizationUtil.normalize(serviceMetadata.getEnvName()));
+            sb.append(ManifestGenConstants.NAME_DELIMITER);
+            sb.append(NormalizationUtil.normalize(serviceMetadata.getServiceName()));
+            sb.append(ManifestGenConstants.NAME_DELIMITER);
+            sb.append(ManifestGenConstants.INGRESS);
+            return sb.toString();
+        }
+
+        @Override
         public Map<String, String> getLabels(ServiceMetadata serviceMetadata) {
             return DefaultLabelBuilder.build(serviceMetadata);
         }
 
         @Override
         public Predicate<ServiceSpec> getPredicate() {
-            return ManifestPredicates.isAutoScalingEnabled();
+            return ManifestPredicates.getLoadBalancerPredicate(LBType.INGRESS);
+        }
+    },
+
+    GATEWAY("Gateway", ManifestGenConstants.NETWORKING_API_VERSION) {
+        @Override
+        public String getName(ServiceMetadata serviceMetadata) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(NormalizationUtil.normalize(serviceMetadata.getEnvName()));
+            sb.append(ManifestGenConstants.NAME_DELIMITER);
+            sb.append(NormalizationUtil.normalize(serviceMetadata.getServiceName()));
+            sb.append(ManifestGenConstants.NAME_DELIMITER);
+            sb.append(ManifestGenConstants.ISTIO);
+            sb.append(ManifestGenConstants.NAME_DELIMITER);
+            sb.append(ManifestGenConstants.GATEWAY);
+            return sb.toString();
+        }
+
+        @Override
+        public Map<String, String> getLabels(ServiceMetadata serviceMetadata) {
+            return DefaultLabelBuilder.build(serviceMetadata);
+        }
+
+        @Override
+        public Predicate<ServiceSpec> getPredicate() {
+            return ManifestPredicates.getLoadBalancerPredicate(LBType.ISTIO);
+        }
+    },
+
+    VIRTUAL_SERVICE("VirtualService", ManifestGenConstants.NETWORKING_API_VERSION) {
+        @Override
+        public String getName(ServiceMetadata serviceMetadata) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(NormalizationUtil.normalize(serviceMetadata.getEnvName()));
+            sb.append(ManifestGenConstants.NAME_DELIMITER);
+            sb.append(NormalizationUtil.normalize(serviceMetadata.getServiceName()));
+            sb.append(ManifestGenConstants.NAME_DELIMITER);
+            sb.append(ManifestGenConstants.ISTIO);
+            sb.append(ManifestGenConstants.NAME_DELIMITER);
+            sb.append(ManifestGenConstants.VIRTUAL_SERVICE);
+            return sb.toString();
+        }
+
+        @Override
+        public Map<String, String> getLabels(ServiceMetadata serviceMetadata) {
+            return DefaultLabelBuilder.build(serviceMetadata);
+        }
+
+        @Override
+        public Predicate<ServiceSpec> getPredicate() {
+            return ManifestPredicates.getLoadBalancerPredicate(LBType.ISTIO);
+        }
+    },
+
+    DESTINATION_RULE("DestinationRule", ManifestGenConstants.NETWORKING_API_VERSION) {
+        @Override
+        public String getName(ServiceMetadata serviceMetadata) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(NormalizationUtil.normalize(serviceMetadata.getEnvName()));
+            sb.append(ManifestGenConstants.NAME_DELIMITER);
+            sb.append(NormalizationUtil.normalize(serviceMetadata.getServiceName()));
+            sb.append(ManifestGenConstants.NAME_DELIMITER);
+            sb.append(ManifestGenConstants.ISTIO);
+            sb.append(ManifestGenConstants.NAME_DELIMITER);
+            sb.append(ManifestGenConstants.DESTINATION_RULE);
+            return sb.toString();
+        }
+
+        @Override
+        public Map<String, String> getLabels(ServiceMetadata serviceMetadata) {
+            return DefaultLabelBuilder.build(serviceMetadata);
+        }
+
+        @Override
+        public Predicate<ServiceSpec> getPredicate() {
+            return ManifestPredicates.getDestinationRulePredicate();
         }
     };
 
@@ -178,7 +262,9 @@ public enum ManifestResource {
 
     public abstract String getName(ServiceMetadata serviceMetadata);
 
-    public abstract Map<String, String> getLabels(ServiceMetadata serviceMetadata);
+    public Map<String, String> getLabels(ServiceMetadata serviceMetadata){
+        return DefaultLabelBuilder.build(serviceMetadata);
+    }
 
     public abstract Predicate<ServiceSpec> getPredicate();
 

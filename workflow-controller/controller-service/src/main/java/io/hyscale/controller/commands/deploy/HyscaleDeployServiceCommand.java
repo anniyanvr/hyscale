@@ -46,6 +46,7 @@ import io.hyscale.commons.logger.WorkflowLogger;
 import io.hyscale.commons.models.Manifest;
 import io.hyscale.controller.activity.ControllerActivity;
 import io.hyscale.controller.model.WorkflowContextBuilder;
+import io.hyscale.controller.commands.args.FileConverter;
 import io.hyscale.controller.commands.input.ProfileArg;
 import io.hyscale.controller.invoker.DeployComponentInvoker;
 import io.hyscale.controller.invoker.ImageBuildComponentInvoker;
@@ -61,13 +62,13 @@ import javax.validation.constraints.Pattern;
  * This class executes 'hyscale deploy service' command
  * It is a sub-command of the 'hyscale deploy' command
  *
- * @option namespace  name of the namespace in which the service to be deployed
- * @option appName   name of the app to logically group your services
- * @option serviceSpecs   list of service specs that are to be deployed
- * @option profiles list of profiles for services
- * @option profile profile name to look for. Profile file should be present for all services in service spec
- * (profiles and profile are mutually exclusive)
- * @option verbose  prints the verbose output of the deployment
+ Options:
+ *  namespace - name of the namespace in which the service to be deployed
+ *  appName - name of the app to logically group your services
+ *  serviceSpecs - list of service specs that are to be deployed
+ *  profiles - list of profiles for services
+ *  profile - profile name to look for. Profile file should be present for all services in service spec (profiles and profile are mutually exclusive)
+ *  verbose - prints the verbose output of the deployment
  * <p>
  * Eg 1: hyscale deploy service -f svca.hspec -f svcb.hspec -p dev-svca.hprof -n dev -a sample
  * Eg 2: hyscale deploy service -f svca.hspec -f svcb.hspec -P dev -n dev -a sample
@@ -103,7 +104,8 @@ public class HyscaleDeployServiceCommand implements Callable<Integer> {
     @CommandLine.Option(names = {"-v", "--verbose", "-verbose"}, required = false, description = "Verbose output")
     private boolean verbose = false;
 
-    @CommandLine.Option(names = {"-f", "--files"}, required = true, description = "Service specs files.", split = ",")
+    @CommandLine.Option(names = {"-f", "--files"}, 
+            required = true, description = "Service specs files.", split = ",", converter = FileConverter.class)
     private List<File> serviceSpecsFiles;
 
     @Pattern(regexp = ValidationConstants.STRUCTURED_OUTPUT_FORMAT_REGEX, message = ValidationConstants.INVALID_OUTPUT_FORMAT_MSG)
@@ -155,6 +157,14 @@ public class HyscaleDeployServiceCommand implements Callable<Integer> {
     @Autowired
     private StructuredOutputHandler outputHandler;
 
+    @Autowired
+    private LoadBalancerValidator loadBalancerValidator;
+
+    private PortsValidator portsValidator;
+
+    @Autowired
+    private NetworkPoliciesValidator networkPoliciesValidator;
+
     private List<Validator<WorkflowContext>> postValidators;
 
     private JsonArray jsonArr;
@@ -169,6 +179,9 @@ public class HyscaleDeployServiceCommand implements Callable<Integer> {
         this.postValidators.add(manifestValidator);
         this.postValidators.add(clusterValidator);
         this.postValidators.add(volumeValidator);
+        this.postValidators.add(loadBalancerValidator);
+        this.postValidators.add(portsValidator);
+        this.postValidators.add(networkPoliciesValidator);
         this.jsonArr = new JsonArray();
         this.jsonParser = new JsonParser();
     }
@@ -192,7 +205,7 @@ public class HyscaleDeployServiceCommand implements Callable<Integer> {
             return ToolConstants.INVALID_INPUT_ERROR_CODE;
         }
 
-        Map<String, File> serviceVsSpecFile = new HashMap<String, File>();
+        Map<String, File> serviceVsSpecFile = new HashMap<>();
         for (File serviceSpec : serviceSpecsFiles) {
             serviceVsSpecFile.put(ServiceSpecUtil.getServiceName(serviceSpec), serviceSpec);
         }
@@ -272,6 +285,9 @@ public class HyscaleDeployServiceCommand implements Callable<Integer> {
                 if (workflowContext.getAttribute(WorkflowConstants.SERVICE_IP) != null) {
                     serviceStatus.setMessage(workflowContext.getAttribute(WorkflowConstants.SERVICE_IP).toString());
                 }
+                if (workflowContext.getAttribute(WorkflowConstants.SERVICE_URL) != null) {
+                    serviceStatus.setMessage(workflowContext.getAttribute(WorkflowConstants.SERVICE_URL).toString());
+                }
                 JsonObject json = (JsonObject) jsonParser.parse(GsonProviderUtil.getPrettyGsonBuilder().toJson(serviceStatus));
                 jsonArr.add(json);
             }
@@ -308,7 +324,7 @@ public class HyscaleDeployServiceCommand implements Callable<Integer> {
                 jsonArr.add(json);
             }
         }
-        return context.isFailed() ? false : true;
+        return !context.isFailed();
     }
 
     private void logWorkflowInfo(WorkflowContext workflowContext) {
@@ -330,7 +346,11 @@ public class HyscaleDeployServiceCommand implements Callable<Integer> {
                 ControllerActivity.DEPLOY_LOGS_AT);
         WorkflowLogger.footer();
         CommandUtil.logMetaInfo((String) workflowContext.getAttribute(WorkflowConstants.SERVICE_IP),
-                ControllerActivity.SERVICE_URL);
+                ControllerActivity.SERVICE_IP);
+        if (workflowContext.getAttribute(WorkflowConstants.SERVICE_URL) != null) {
+            CommandUtil.logMetaInfo((String) workflowContext.getAttribute(WorkflowConstants.SERVICE_URL),
+                    ControllerActivity.SERVICE_URL);
+        }
     }
 
     @PreDestroy
